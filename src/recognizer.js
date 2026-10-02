@@ -130,7 +130,7 @@ export function recogniseGlyph(strokes,glyphs,kind="sigil"){
 }
 
 
-export export function extractCentralGlyphStrokes(strokes,primaryRingIndex=-1){
+export function extractCentralGlyphStrokes(strokes,primaryRingIndex=-1){
   const candidates=(strokes||[]).map((p,index)=>({index,p,b:bounds(p)})).filter(x=>x.index!==primaryRingIndex&&x.p.length>=4);
   if(!candidates.length)return [];
   const centre=primaryRingIndex>=0?bounds(strokes[primaryRingIndex]):bounds(candidates.flatMap(x=>x.p));
