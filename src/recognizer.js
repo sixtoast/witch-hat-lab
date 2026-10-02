@@ -105,3 +105,14 @@ export function recogniseGlyph(strokes,glyphs,kind="sigil"){
   const recognised=top.confidence>=.72&&margin>=.10;
   return {status:recognised?"recognised":"ambiguous",label:recognised?top.name:"Ambiguous glyph",confidence:top.confidence,candidates:candidates.slice(0,5),margin,reason:recognised?"Best match clears the confidence and ambiguity thresholds.":"No candidate clears both the confidence and ambiguity thresholds."};
 }
+
+
+export function extractCentralGlyphStrokes(strokes,primaryRingIndex=-1){
+  const candidates=(strokes||[]).map((p,index)=>({index,p,b:bounds(p)})).filter(x=>x.index!==primaryRingIndex&&x.p.length>=4);
+  if(!candidates.length)return [];
+  const centre=primaryRingIndex>=0?bounds(strokes[primaryRingIndex]):bounds(candidates.flatMap(x=>x.p));
+  const radius=Math.max(centre.w,centre.h,1)*.34;
+  const near=candidates.filter(x=>Math.hypot(x.b.cx-centre.cx,x.b.cy-centre.cy)<=radius);
+  const chosen=near.length?near:[candidates.slice().sort((a,b)=>Math.hypot(a.b.cx-centre.cx,a.b.cy-centre.cy)-Math.hypot(b.b.cx-centre.cx,b.b.cy-centre.cy))[0]];
+  return chosen.map(x=>x.p);
+}
