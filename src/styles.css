@@ -2,3 +2,18 @@
 .recognition{position:relative;display:grid!important;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;min-height:42px}.recognition small{grid-column:2/4;text-transform:uppercase;letter-spacing:.08em;font-size:9px;opacity:.55}.panel-note{padding:12px 14px;border:1px solid rgba(25,24,21,.12);background:rgba(25,24,21,.035);font-size:12px;line-height:1.5;margin:14px 0}.row em{font-style:normal;font-variant-numeric:tabular-nums;opacity:.65}.row strong{min-width:0}.row span{opacity:.4;font-variant-numeric:tabular-nums}
 
 .detected-sigil{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px 0 16px;border-bottom:1px solid rgba(25,24,21,.12);margin-bottom:16px}.detected-sigil strong{font-family:Georgia,serif;font-size:22px;font-weight:500}.detected-sigil span{font-size:9px;text-transform:uppercase;letter-spacing:.08em;opacity:.55;text-align:right;max-width:180px}
+
+.codex-intro{border:1px solid #302f29;background:#151512;padding:16px 18px;margin:18px 0 24px}
+.codex-intro strong{font:10px "DM Mono";letter-spacing:.12em}
+.codex-intro p{font-size:12px;line-height:1.65;color:#aaa69b;margin:9px 0 0}
+.codex-intro b{color:#e4dcc8;font-weight:600}
+.codex-card{display:grid;grid-template-columns:92px 1fr;gap:14px;min-height:112px}
+.glyph-frame{width:92px;height:92px;background:#eee8d7;border:1px solid #34322d;display:grid;place-items:center;overflow:hidden}
+.glyph-frame img{width:100%;height:100%;object-fit:contain;image-rendering:auto}
+.glyph-frame span{font:8px "DM Mono";color:#77736a;text-align:center;padding:8px}
+.glyph-copy b{display:block;font-size:14px}
+.glyph-copy>span{display:block;font:8px "DM Mono";letter-spacing:.08em;color:#77736a;text-transform:uppercase;margin-top:3px}
+.glyph-copy p{font-size:11px;color:#a39e91;margin:7px 0;line-height:1.45}
+.glyph-copy a{display:inline-flex;align-items:center;gap:3px;color:#d5ccb5;text-decoration:none;font:8px "DM Mono";letter-spacing:.06em}
+.glyph-copy a:hover{text-decoration:underline}
+@media(max-width:850px){.codex-card{grid-template-columns:76px 1fr}.glyph-frame{width:76px;height:76px}}
