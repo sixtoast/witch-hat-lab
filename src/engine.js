@@ -68,14 +68,27 @@ export function strokeFeatures(points){
   return {length:len,...b,aspect:b.w/(b.h||1),closure,circularity,directness:direct,turns,sharpTurns:sharp,turningSum:signed};
 }
 
+// A true enclosing ring should have nearly constant radius from its centre.
+// This is deliberately stricter than bbox circularity: a closed sigil can be
+// roughly square/circular without being an enclosing ring.
+export function radialCircularity(points){
+  if(points.length<8)return 0;
+  const b=bounds(points);
+  const radii=points.map(p=>Math.hypot(p.x-b.cx,p.y-b.cy));
+  const mean=radii.reduce((s,r)=>s+r,0)/radii.length||1;
+  const variance=radii.reduce((s,r)=>s+(r-mean)**2,0)/radii.length;
+  const cv=Math.sqrt(variance)/mean;
+  return clamp(1-cv/.18);
+}
+
 export function ringScore(points){
   if(points.length<8)return 0;
   const f=strokeFeatures(points);
-  const closed=clamp(1-f.closure/.22);
-  const circle=clamp(f.circularity);
-  const smooth=clamp(1-f.sharpTurns/Math.max(12,points.length*.2));
-  const coverage=clamp(f.length/(Math.PI*Math.max(f.w,f.h)*.55));
-  return clamp(.42*closed+.28*circle+.18*smooth+.12*coverage);
+  const closed=clamp(1-f.closure/.16);
+  const radial=radialCircularity(points);
+  const smooth=clamp(1-f.sharpTurns/Math.max(10,points.length*.12));
+  const coverage=clamp(f.length/(Math.PI*Math.max(f.w,f.h)*.7));
+  return clamp(.38*closed+.38*radial+.14*smooth+.10*coverage);
 }
 
 export function analyseStroke(points, ring=false){
@@ -105,8 +118,19 @@ function familyLabel(f){
 export function analyseTopology(strokes){
   const rings=strokes.map(ringScore);
   const ranked=rings.map((score,index)=>({score,index})).sort((a,b)=>b.score-a.score);
-  const primary=ranked[0]?.score>.45?ranked[0].index:-1;
-  const nested=ranked.filter((x,i)=>x.score>.55&&x.index!==primary&&i<5).map(x=>x.index);
+  // Never call a lone closed stroke the enclosing ring. A seal ring is a
+  // structural boundary around other marks, not simply any closed glyph.
+  let primary=-1;
+  if(strokes.length>=2){
+    const candidate=ranked[0];
+    if(candidate?.score>.62){
+      const cb=bounds(strokes[candidate.index]);
+      const otherMax=Math.max(...strokes.filter((_,i)=>i!==candidate.index).map(p=>Math.max(bounds(p).w,bounds(p).h)),0);
+      const candidateSize=Math.max(cb.w,cb.h);
+      if(candidateSize>=otherMax*1.45) primary=candidate.index;
+    }
+  }
+  const nested=primary>=0?ranked.filter(x=>x.index!==primary&&x.score>.70).map(x=>x.index):[];
   const marks=strokes.map((p,index)=>({index,...analyseStroke(p,index===primary)})).filter(x=>x.index!==primary);
   const ring=primary>=0?analyseStroke(strokes[primary],true):null;
   const quality=strokes.length?Math.round(strokes.reduce((sum,p)=>sum+strokeQuality(p),0)/strokes.length):0;
@@ -124,8 +148,6 @@ export function strokeQuality(points){
 
 function calculateBalance(marks){
   if(marks.length<2)return 100;
-  const angles=marks.map(m=>Math.atan2(m.features.cy,m.features.cx));
-  const xs=marks.map(m=>Math.cos(angles[0])); // deterministic fallback for single-sided sets
   const centre=marks.reduce((s,m)=>s+Math.atan2(m.features.cy,m.features.cx),0)/marks.length;
   const spread=marks.reduce((s,m)=>s+Math.abs(Math.atan2(Math.sin(Math.atan2(m.features.cy,m.features.cx)-centre),Math.cos(Math.atan2(m.features.cy,m.features.cx)-centre))),0)/marks.length;
   return Math.round(clamp(1-spread/Math.PI)*100);
@@ -153,7 +175,6 @@ export function enrichMarks(topology){
     return {...m,candidates,semantic:candidates[0]?.name||"Unresolved sign",confidence:candidates[0]?.confidence||0,ambiguous:(candidates[0]?.confidence||0)<.65||(candidates[0]?.confidence-candidates[1]?.confidence<.12)};
   });
 }
-
 
 const SIGIL_CANDIDATES=[["Fire","primary-element"],["Water","primary-element"],["Earth","primary-element"],["Wind","primary-element"],["Light","fire-variant"],["Repetition","modifier"],["Purification","modifier"],["Guidance","modifier"],["Calling","modifier"],["Sword","form"],["Bridging","link"]];
 export function classifyCentralSigil(strokes,primaryRingIndex=-1){
