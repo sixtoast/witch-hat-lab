@@ -1,6 +1,8 @@
 import {clamp,dist,resample,pathLength,bounds} from "./engine.js";
 
-const TEMPLATE_KEY="witch-hat-lab:recognizer-templates:v1";
+const TEMPLATE_KEY="witch-hat-lab:recognizer-templates:v2";
+const LEGACY_TEMPLATE_KEY="witch-hat-lab:recognizer-templates:v1";
+const MAX_SAMPLES=12;
 
 function prepareStroke(points){return resample(points||[]).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));}
 function normaliseGlyph(strokes){
@@ -9,14 +11,25 @@ function normaliseGlyph(strokes){
   const b=bounds(prepared.flat()),size=Math.max(b.w,b.h,1);
   return prepared.map(stroke=>stroke.map(p=>({x:(p.x-b.cx)/size,y:(p.y-b.cy)/size})));
 }
+function cleanSample(strokes){return normaliseGlyph(strokes||[])}
 function cleanTemplate(template){
-  return {id:template.id,name:template.name,kind:template.kind,status:template.status||"reference",source:template.source||"",strokes:normaliseGlyph(template.strokes||[])};
+  const samples=Array.isArray(template?.samples)
+    ? template.samples.map(cleanSample).filter(s=>s.length)
+    : (template?.strokes?.length?[cleanSample(template.strokes)]:[]);
+  return {id:template.id,name:template.name,kind:template.kind,status:template.status||"reference",source:template.source||"",samples:samples.slice(0,MAX_SAMPLES)};
+}
+function migrateLegacy(){
+  try{
+    const raw=localStorage.getItem(LEGACY_TEMPLATE_KEY); if(!raw)return {};
+    const parsed=JSON.parse(raw);
+    return Object.fromEntries(Object.entries(parsed).map(([id,t])=>[id,cleanTemplate(t)]));
+  }catch{return {}}
 }
 export function loadTemplates(){
   try{
-    const raw=localStorage.getItem(TEMPLATE_KEY); if(!raw)return {};
-    const parsed=JSON.parse(raw);
-    return Object.fromEntries(Object.entries(parsed).map(([id,t])=>[id,cleanTemplate(t)]));
+    const raw=localStorage.getItem(TEMPLATE_KEY);
+    const parsed=raw?JSON.parse(raw):migrateLegacy();
+    return Object.fromEntries(Object.entries(parsed||{}).map(([id,t])=>[id,cleanTemplate(t)]));
   }catch{return {}}
 }
 export function saveTemplate(glyph,strokes){
@@ -24,7 +37,10 @@ export function saveTemplate(glyph,strokes){
   if(!cleaned.length)throw new Error("A template needs at least one usable stroke.");
   if(pathLength(cleaned.flat())<24)throw new Error("The template drawing is too short.");
   const templates=loadTemplates();
-  templates[glyph.id]=cleanTemplate({...glyph,strokes:cleaned,trainedAt:new Date().toISOString()});
+  const current=templates[glyph.id]||cleanTemplate(glyph);
+  current.samples=[...(current.samples||[]),cleaned].slice(-MAX_SAMPLES);
+  current.trainedAt=new Date().toISOString();
+  templates[glyph.id]=cleanTemplate(current);
   localStorage.setItem(TEMPLATE_KEY,JSON.stringify(templates));
   return templates[glyph.id];
 }
@@ -32,7 +48,7 @@ export function removeTemplate(id){
   const templates=loadTemplates(); delete templates[id];
   localStorage.setItem(TEMPLATE_KEY,JSON.stringify(templates));
 }
-export function clearTemplates(){localStorage.removeItem(TEMPLATE_KEY);}
+export function clearTemplates(){localStorage.removeItem(TEMPLATE_KEY);localStorage.removeItem(LEGACY_TEMPLATE_KEY);}
 export function templateState(glyphs){
   const saved=loadTemplates();
   return glyphs.map(g=>({...g,trained:Boolean(saved[g.id]),template:saved[g.id]||null}));
@@ -92,17 +108,20 @@ function bestAssignment(input,template){
 }
 export function compareToTemplate(strokes,template){
   const input=normaliseGlyph(strokes||[]),t=cleanTemplate(template);
-  if(!input.length||!t.strokes.length)return {distance:1,confidence:0};
-  const assignment=bestAssignment(input,t.strokes);
-  const countPenalty=Math.abs(input.length-t.strokes.length)*.24;
-  const distance=clamp(assignment.cost+countPenalty);
-  return {distance,confidence:clamp(1-distance/.72),strokeCountMatch:input.length===t.strokes.length,matched:assignment.matched};
+  if(!input.length||!t.samples.length)return {distance:1,confidence:0,sampleIndex:-1};
+  const results=t.samples.map((sample,index)=>{
+    const assignment=bestAssignment(input,sample);
+    const countPenalty=Math.abs(input.length-sample.length)*.24;
+    const distance=clamp(assignment.cost+countPenalty);
+    return {distance,confidence:clamp(1-distance/.72),sampleIndex:index,strokeCountMatch:input.length===sample.length,matched:assignment.matched};
+  }).sort((a,b)=>b.confidence-a.confidence);
+  return results[0];
 }
 export function recogniseGlyph(strokes,glyphs,kind="sigil"){
   const usable=normaliseGlyph(strokes||[]);
   if(!usable.length)return {status:"missing",label:"No glyph detected",confidence:0,candidates:[],reason:"No usable strokes."};
   const templates=loadTemplates();
-  const available=glyphs.filter(g=>g.kind===kind&&templates[g.id]?.strokes?.length);
+  const available=glyphs.filter(g=>g.kind===kind&&templates[g.id]?.samples?.length);
   if(!available.length)return {status:"untrained",label:"Recognizer not calibrated",confidence:0,candidates:[],reason:"No "+kind+" templates have been calibrated yet."};
   const candidates=available.map(g=>({...g,...compareToTemplate(usable,templates[g.id])})).sort((a,b)=>b.confidence-a.confidence);
   const top=candidates[0],second=candidates[1],margin=second?top.confidence-second.confidence:top.confidence;
@@ -111,7 +130,7 @@ export function recogniseGlyph(strokes,glyphs,kind="sigil"){
 }
 
 
-export function extractCentralGlyphStrokes(strokes,primaryRingIndex=-1){
+export export function extractCentralGlyphStrokes(strokes,primaryRingIndex=-1){
   const candidates=(strokes||[]).map((p,index)=>({index,p,b:bounds(p)})).filter(x=>x.index!==primaryRingIndex&&x.p.length>=4);
   if(!candidates.length)return [];
   const centre=primaryRingIndex>=0?bounds(strokes[primaryRingIndex]):bounds(candidates.flatMap(x=>x.p));
