@@ -178,5 +178,5 @@ export function compileSpell(topology,sigil,ink){
   const spread=clamp(.25+marks.filter(m=>/Dispersion|Radial|Rain/i.test(m.semantic)).length*.18);
   const range=clamp(.3+marks.filter(m=>/Levitation|Column|Pull|Launch/i.test(m.semantic)).length*.15);
   const stability=clamp(topology.quality/100*.55+topology.balance/100*.25+(topology.ring?.confidence||0)*.2);
-  return {sigil:detected.label,detectedSigil:detected,signs:names,force:Math.round(force*100),spread:Math.round(spread*100),range:Math.round(range*100),stability:Math.round(stability*100),duration:Math.round(20+ink*.65),activation:(topology.ring?.confidence||0)>=.8?"complete":"prepared",marks};
+  const effect={Fire:"heat / flame",Water:"water manifestation",Earth:"earth / material",Wind:"air / pressure",Light:"light"}[detected.label]||"unresolved manifestation";\n  return {sigil:detected.label,detectedSigil:detected,effect,signs:names,force:Math.round(force*100),spread:Math.round(spread*100),range:Math.round(range*100),stability:Math.round(stability*100),duration:Math.round(20+ink*.65),activation:(topology.ring?.confidence||0)>=.8?"complete":"prepared",marks};
 }
