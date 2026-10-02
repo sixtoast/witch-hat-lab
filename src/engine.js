@@ -154,6 +154,23 @@ export function enrichMarks(topology){
   });
 }
 
+
+const SIGIL_CANDIDATES=[["Fire","primary-element"],["Water","primary-element"],["Earth","primary-element"],["Wind","primary-element"],["Light","fire-variant"],["Repetition","modifier"],["Purification","modifier"],["Guidance","modifier"],["Calling","modifier"],["Sword","form"],["Bridging","link"]];
+export function classifyCentralSigil(strokes,primaryRingIndex=-1){
+  const candidates=[];
+  const ring=primaryRingIndex>=0?bounds(strokes[primaryRingIndex]):null;
+  const inner=strokes.map((p,index)=>({index,p,b:bounds(p)})).filter(x=>x.index!==primaryRingIndex).map(x=>({...x,distFromCentre:ring?Math.hypot(x.b.cx-ring.cx,x.b.cy-ring.cy):Math.hypot(x.b.cx,x.b.cy)}));
+  if(!inner.length)return {status:"missing",label:"No central sigil detected",confidence:0,candidates:[]};
+  const ordered=inner.slice().sort((a,b)=>a.distFromCentre-b.distFromCentre);
+  const central=ordered[0], maxRadius=ring?Math.max(ring.w,ring.h)*.34:Math.max(central.b.w,central.b.h)*1.6;
+  const centrality=clamp(1-central.distFromCentre/(maxRadius||1));
+  const f=strokeFeatures(central.p), closed=f.closure<.35, compact=clamp(1-Math.max(f.w,f.h)/(Math.max(ring?.w||f.w*2,ring?.h||f.h*2)*.45));
+  const shape=[];
+  shape.push(["Fire",.25+(closed?.18:0)+f.circularity*.12]); shape.push(["Water",.25+(f.turns<8?.15:0)+f.w>f.h?.08:0]); shape.push(["Earth",.25+(f.circularity>.7?.12:0)+Math.min(.12,f.sharpTurns*.01)]); shape.push(["Wind",.25+(f.turns>4?.14:0)+Math.min(.1,Math.abs(f.turningSum)/20)]); shape.push(["Light",.2+(f.directness>.55?.12:0)]);
+  const scored=shape.map(([label,score])=>({label,confidence:clamp(score*.55+centrality*.25+compact*.2),source:"geometric candidate"})).sort((a,b)=>b.confidence-a.confidence);
+  const top=scored[0],second=scored[1];
+  return {status:top.confidence>=.62?"recognised":"ambiguous",stroke:central.index,label:top.confidence>=.45?top.label:"Unknown sigil",confidence:top.confidence,candidates:scored.slice(0,5),centrality,compact};
+}
 export function compileSpell(topology,sigil,ink){
   const marks=enrichMarks(topology);
   const names=marks.map(m=>m.semantic).filter(Boolean);
@@ -161,5 +178,5 @@ export function compileSpell(topology,sigil,ink){
   const spread=clamp(.25+marks.filter(m=>/Dispersion|Radial|Rain/i.test(m.semantic)).length*.18);
   const range=clamp(.3+marks.filter(m=>/Levitation|Column|Pull|Launch/i.test(m.semantic)).length*.15);
   const stability=clamp(topology.quality/100*.55+topology.balance/100*.25+(topology.ring?.confidence||0)*.2);
-  return {sigil,signs:names,force:Math.round(force*100),spread:Math.round(spread*100),range:Math.round(range*100),stability:Math.round(stability*100),duration:Math.round(20+ink*.65),activation:(topology.ring?.confidence||0)>=.8?"complete":"prepared",marks};
+  return {sigil:detected.label,detectedSigil:detected,signs:names,force:Math.round(force*100),spread:Math.round(spread*100),range:Math.round(range*100),stability:Math.round(stability*100),duration:Math.round(20+ink*.65),activation:(topology.ring?.confidence||0)>=.8?"complete":"prepared",marks};
 }
