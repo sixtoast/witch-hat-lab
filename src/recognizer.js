@@ -1,12 +1,16 @@
-import {clamp,dist,normalise,resample,pathLength,bounds} from "./engine.js";
+import {clamp,dist,resample,pathLength,bounds} from "./engine.js";
 
 const TEMPLATE_KEY="witch-hat-lab:recognizer-templates:v1";
 
-function cleanStroke(points){
-  return normalise(points||[]).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
+function prepareStroke(points){return resample(points||[]).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));}
+function normaliseGlyph(strokes){
+  const prepared=(strokes||[]).map(prepareStroke).filter(s=>s.length>=4);
+  if(!prepared.length)return [];
+  const b=bounds(prepared.flat()),size=Math.max(b.w,b.h,1);
+  return prepared.map(stroke=>stroke.map(p=>({x:(p.x-b.cx)/size,y:(p.y-b.cy)/size})));
 }
 function cleanTemplate(template){
-  return {id:template.id,name:template.name,kind:template.kind,status:template.status||"reference",source:template.source||"",strokes:(template.strokes||[]).map(cleanStroke).filter(s=>s.length>=4)};
+  return {id:template.id,name:template.name,kind:template.kind,status:template.status||"reference",source:template.source||"",strokes:normaliseGlyph(template.strokes||[])};
 }
 export function loadTemplates(){
   try{
@@ -16,7 +20,7 @@ export function loadTemplates(){
   }catch{return {}}
 }
 export function saveTemplate(glyph,strokes){
-  const cleaned=(strokes||[]).map(cleanStroke).filter(s=>s.length>=4);
+  const cleaned=normaliseGlyph(strokes||[]);
   if(!cleaned.length)throw new Error("A template needs at least one usable stroke.");
   if(pathLength(cleaned.flat())<24)throw new Error("The template drawing is too short.");
   const templates=loadTemplates();
@@ -87,7 +91,7 @@ function bestAssignment(input,template){
   return {cost:cost/input.length,matched:input.length};
 }
 export function compareToTemplate(strokes,template){
-  const input=(strokes||[]).map(cleanStroke).filter(s=>s.length>=4),t=cleanTemplate(template);
+  const input=normaliseGlyph(strokes||[]),t=cleanTemplate(template);
   if(!input.length||!t.strokes.length)return {distance:1,confidence:0};
   const assignment=bestAssignment(input,t.strokes);
   const countPenalty=Math.abs(input.length-t.strokes.length)*.24;
@@ -95,7 +99,7 @@ export function compareToTemplate(strokes,template){
   return {distance,confidence:clamp(1-distance/.72),strokeCountMatch:input.length===t.strokes.length,matched:assignment.matched};
 }
 export function recogniseGlyph(strokes,glyphs,kind="sigil"){
-  const usable=(strokes||[]).map(cleanStroke).filter(s=>s.length>=4);
+  const usable=normaliseGlyph(strokes||[]);
   if(!usable.length)return {status:"missing",label:"No glyph detected",confidence:0,candidates:[],reason:"No usable strokes."};
   const templates=loadTemplates();
   const available=glyphs.filter(g=>g.kind===kind&&templates[g.id]?.strokes?.length);
