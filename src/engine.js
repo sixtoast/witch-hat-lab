@@ -172,6 +172,7 @@ export function classifyCentralSigil(strokes,primaryRingIndex=-1){
   return {status:top.confidence>=.62?"recognised":"ambiguous",stroke:central.index,label:top.confidence>=.45?top.label:"Unknown sigil",confidence:top.confidence,candidates:scored.slice(0,5),centrality,compact};
 }
 export function compileSpell(topology,sigil,ink){
+  const detected=classifyCentralSigil(topology.strokes||[],topology.primaryRing);
   const marks=enrichMarks(topology);
   const names=marks.map(m=>m.semantic).filter(Boolean);
   const force=clamp(.3+marks.filter(m=>/Column|Crush|Convergence|Bolt/i.test(m.semantic)).length*.12);
