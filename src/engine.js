@@ -111,7 +111,7 @@ export function analyseTopology(strokes){
   const ring=primary>=0?analyseStroke(strokes[primary],true):null;
   const quality=strokes.length?Math.round(strokes.reduce((sum,p)=>sum+strokeQuality(p),0)/strokes.length):0;
   const balance=calculateBalance(marks);
-  return {primaryRing:primary,nestedRings:nested,ringScores:rings,ring,marks,quality,balance,strokeCount:strokes.length};
+  return {strokes,primaryRing:primary,nestedRings:nested,ringScores:rings,ring,marks,quality,balance,strokeCount:strokes.length};
 }
 
 export function strokeQuality(points){
@@ -166,7 +166,7 @@ export function classifyCentralSigil(strokes,primaryRingIndex=-1){
   const centrality=clamp(1-central.distFromCentre/(maxRadius||1));
   const f=strokeFeatures(central.p), closed=f.closure<.35, compact=clamp(1-Math.max(f.w,f.h)/(Math.max(ring?.w||f.w*2,ring?.h||f.h*2)*.45));
   const shape=[];
-  shape.push(["Fire",.25+(closed?.18:0)+f.circularity*.12]); shape.push(["Water",.25+(f.turns<8?.15:0)+f.w>f.h?.08:0]); shape.push(["Earth",.25+(f.circularity>.7?.12:0)+Math.min(.12,f.sharpTurns*.01)]); shape.push(["Wind",.25+(f.turns>4?.14:0)+Math.min(.1,Math.abs(f.turningSum)/20)]); shape.push(["Light",.2+(f.directness>.55?.12:0)]);
+  shape.push(["Fire",.25+(closed?.18:0)+f.circularity*.12]); shape.push(["Water",.25+(f.turns<8?.15:0)+(f.w>f.h?.08:0)]); shape.push(["Earth",.25+(f.circularity>.7?.12:0)+Math.min(.12,f.sharpTurns*.01)]); shape.push(["Wind",.25+(f.turns>4?.14:0)+Math.min(.1,Math.abs(f.turningSum)/20)]); shape.push(["Light",.2+(f.directness>.55?.12:0)]);
   const scored=shape.map(([label,score])=>({label,confidence:clamp(score*.55+centrality*.25+compact*.2),source:"geometric candidate"})).sort((a,b)=>b.confidence-a.confidence);
   const top=scored[0],second=scored[1];
   return {status:top.confidence>=.62?"recognised":"ambiguous",stroke:central.index,label:top.confidence>=.45?top.label:"Unknown sigil",confidence:top.confidence,candidates:scored.slice(0,5),centrality,compact};
