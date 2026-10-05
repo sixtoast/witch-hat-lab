@@ -3,7 +3,7 @@ import{createRoot}from"react-dom/client";
 import{BookOpen,BrainCircuit,ChevronRight,Play,RotateCcw,Save,Sparkles,Trash2,Target,Check,X,HelpCircle,Database,ChevronLeft}from"lucide-react";
 import{analyseTopology,compileSpell,enrichMarks}from"./engine.js";
 import{VERIFIED_SIGILS}from"./glyphs.js";
-import{extractCentralGlyphStrokes,loadTemplates,recogniseGlyph,saveTemplate,removeTemplate}from"./recognizer.js";
+import{extractCentralGlyphStrokes,loadTemplates,recogniseGlyph,saveTemplate,removeTemplate,recogniserHealth}from"./recognizer.js";
 import"./styles.css";
 
 const SIGILS=[
@@ -53,7 +53,7 @@ function App(){const[tab,setTab]=useState("atelier"),[strokes,setStrokes]=useSta
 const topology=useMemo(()=>analyseTopology(strokes),[strokes]),centralStrokes=useMemo(()=>extractCentralGlyphStrokes(strokes,topology.primaryRing),[strokes,topology.primaryRing]),sigilRecognition=useMemo(()=>recogniseGlyph(centralStrokes,VERIFIED_SIGILS,"sigil"),[centralStrokes,templateVersion]),marks=useMemo(()=>enrichMarks(topology),[topology]),ir=useMemo(()=>compileSpell(topology,sigilRecognition,ink),[topology,sigilRecognition,ink]);
 useEffect(()=>{localStorage.setItem("witch-hat-lab:last",JSON.stringify({version:"0.4",strokes,ink}))},[strokes,ink]);
 const reset=()=>{setStrokes([]);setMessage("Canvas cleared")},undo=()=>setStrokes(s=>s.slice(0,-1));
-const trainCurrent=()=>{const glyph=VERIFIED_SIGILS.find(g=>g.id===trainingGlyph);try{saveTemplate(glyph,strokes);setTemplateVersion(v=>v+1);setMessage(glyph.name+" template calibrated from the current drawing")}catch(e){setMessage(e.message)}};
+const trainCurrent=()=>{const glyph=VERIFIED_SIGILS.find(g=>g.id===trainingGlyph);try{const saved=saveTemplate(glyph,strokes);setTemplateVersion(v=>v+1);setMessage(saved.outlierWarning||("Saved "+glyph.name+" sample "+saved.samples.length+"/"+16+". The recogniser will compare against the full sample bank."))}catch(e){setMessage(e.message)}};
 const forgetTraining=()=>{removeTemplate(trainingGlyph);setTemplateVersion(v=>v+1);setMessage("Calibration removed for "+(VERIFIED_SIGILS.find(g=>g.id===trainingGlyph)?.name||trainingGlyph))};
 const stampCurrent=()=>{const template=loadTemplates()[stampGlyph];if(!template?.samples?.length){setMessage("No calibrated sample. Trace and calibrate this glyph first.");return}setMessage("Stamp ready: inserting a calibrated raw sample. Recognition will decide what it is.");setStampMode(true)};
 const placeStamp=(point)=>{const template=loadTemplates()[stampGlyph],sample=template?.samples?.[0];if(!sample?.length){setMessage("No calibrated sample.");setStampMode(false);return}const flat=sample.flat(),b={minX:Math.min(...flat.map(p=>p.x)),maxX:Math.max(...flat.map(p=>p.x)),minY:Math.min(...flat.map(p=>p.y)),maxY:Math.max(...flat.map(p=>p.y))},size=Math.max(b.maxX-b.minX,b.maxY-b.minY,.01),scale=Math.min(280,window.innerWidth*.28),raw=sample.map(stroke=>stroke.map(p=>({x:point.x+((p.x-(b.minX+b.maxX)/2)/size)*scale,y:point.y+((p.y-(b.minY+b.maxY)/2)/size)*scale})));setMessage("Stamped raw sample. Recognition is evaluating it.");setStampMode(false);setStrokes(s=>[...s,...raw])};
