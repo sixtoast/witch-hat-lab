@@ -3,7 +3,7 @@ import{createRoot}from"react-dom/client";
 import{BookOpen,BrainCircuit,ChevronRight,Play,RotateCcw,Save,Sparkles,Trash2,Target,Check,X,HelpCircle,Database,ChevronLeft}from"lucide-react";
 import{analyseTopology,compileSpell,enrichMarks}from"./engine.js";
 import{VERIFIED_SIGILS}from"./glyphs.js";
-import{extractCentralGlyphStrokes,loadTemplates,recogniseGlyph,saveTemplate,removeTemplate,recogniserHealth}from"./recognizer.js";
+import{extractCentralGlyphStrokes,loadTemplates,recogniseGlyph,saveTemplate,removeTemplate}from"./recognizer.js";
 import"./styles.css";
 
 const SIGILS=[
